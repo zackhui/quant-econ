@@ -3,6 +3,8 @@ Simple Test Script which can be used to run a directoy of py files
 
 Just run this file using `python $filename`
 
+Best to run this in ipython notebook --pylab=inline as it catches the plot output
+
 """
 from subprocess import call
 import glob
