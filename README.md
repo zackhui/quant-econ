@@ -1,23 +1,9 @@
 
-## Quantitative Economics
+## Quantitative Economics (Python)
 
-This repository collects code for quantitative economic modeling
+This repository collects code for quantitative economic modeling in Python
 
-Comprehensive documentation is currently being prepared
-
-At present, the majority of the code is described at [quant-econ.net](http://quant-econ.net), in an on-line course authored by [Thomas J. Sargent](https://files.nyu.edu/ts43/public/) and [John Stachurski](http://johnstachurski.net)
-
-However this code repository is a separate project from [quant-econ.net](http://quant-econ.net), and we welcome contributions and pull requests
-
-At present, the lead developers of this repository (in alphabetical order) are
-
-* [Chase Coleman](https://github.com/cc7768)
-* [Spencer Lyon](https://github.com/spencerlyon2)
-* [Matthew McKay](https://github.com/sanguineturtle)
-* [Thomas J. Sargent](https://files.nyu.edu/ts43/public/)
-* [John Stachurski](http://johnstachurski.net)
-* [Pablo Winant](http://www.mosphere.fr/)
-
+Libary Website: [http://quantecon.org](http://quantecon.org)
 
 ### Downloading the Repository
 
@@ -37,15 +23,18 @@ Assuming you have [pip](https://pypi.python.org/pypi/pip) on your computer --- a
 at a terminal prompt
 
 #### Current Build and Coverage Status:
-[![Build Status](https://travis-ci.org/jstac/quant-econ.svg?branch=master)](https://travis-ci.org/jstac/quant-econ)
-[![Coverage Status](https://coveralls.io/repos/jstac/quant-econ/badge.png)](https://coveralls.io/r/jstac/quant-econ)
+[![Build Status](https://travis-ci.org/QuantEcon/QuantEcon.py.svg?branch=master)](https://travis-ci.org/QuantEcon/QuantEcon.py)
+[![Coverage Status](https://coveralls.io/repos/QuantEcon/QuantEcon.py/badge.png)](https://coveralls.io/r/QuantEcon/QuantEcon.py)
+
+#### Current ReadTheDocs Status:
+[![Documentation Status](https://readthedocs.org/projects/quanteconpy/badge/?version=latest)](https://readthedocs.org/projects/quanteconpy/?badge=latest)
 
 
-### About Git / GitHub
+## Additional Links
 
-This code repository is hosted by [GitHub](http://github.com).  The primary function of GitHub is to host open source code repositories in a manner that facilitates sharing and collaboration.
-
-If you wand to learn a bit more about Git and GitHub, you'll find it's an excellent investment. A good place to start is the [GitHub help page](https://help.github.com/).
+1. [Project Coordinators](http://quantecon.org/about/#people)
+2. [Lead Developers](http://quantecon.org/about/#people)
+3. [QuantEcon Course Website](http://quant-econ.net)
 
 ### License
 

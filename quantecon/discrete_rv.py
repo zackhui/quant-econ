@@ -24,8 +24,7 @@ class DiscreteRV(object):
 
     Attributes
     ----------
-    q : array_like(float)
-        Nonnegative numbers that sum to 1
+    q : see Parameters
     Q : array_like(float)
         The cumulative sum of q
 
@@ -34,6 +33,12 @@ class DiscreteRV(object):
     def __init__(self, q):
         self._q = q
         self.Q = cumsum(q)
+
+    def __repr__(self):
+        return "DiscreteRV with {n} elements".format(n=self._q.size)
+
+    def __str__(self):
+        return self.__repr__()
 
     @property
     def q(self):

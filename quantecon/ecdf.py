@@ -9,7 +9,6 @@ of observations.
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 class ECDF(object):
@@ -24,13 +23,19 @@ class ECDF(object):
 
     Attributes
     ----------
-    observations : array_like
-        An array of observations
+    observations : see Parameters
 
     """
 
     def __init__(self, observations):
         self.observations = np.asarray(observations)
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        m = "Empirical CDF:\n  - number of observations: {n}"
+        return m.format(n=self.observations.size)
 
     def __call__(self, x):
         """
@@ -48,28 +53,3 @@ class ECDF(object):
 
         """
         return np.mean(self.observations <= x)
-
-    def plot(self, a=None, b=None):
-        """
-        Plot the ecdf on the interval [a, b].
-
-        Parameters
-        ----------
-        a : scalar(float), optional(default=None)
-            Lower end point of the plot interval
-        b : scalar(float), optional(default=None)
-            Upper end point of the plot interval
-
-        """
-
-        # === choose reasonable interval if [a, b] not specified === #
-        if a is None:
-            a = self.observations.min() - self.observations.std()
-        if b is None:
-            b = self.observations.max() + self.observations.std()
-
-        # === generate plot === #
-        x_vals = np.linspace(a, b, num=100)
-        f = np.vectorize(self.__call__)
-        plt.plot(x_vals, f(x_vals))
-        plt.show()

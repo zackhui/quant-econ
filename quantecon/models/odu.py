@@ -8,6 +8,7 @@ iteration and a second faster method discussed in the corresponding
 quantecon lecture.
 
 """
+from textwrap import dedent
 from scipy.interpolate import LinearNDInterpolator
 from scipy.integrate import fixed_quad
 from scipy.stats import beta as beta_distribution
@@ -16,7 +17,7 @@ from numpy import maximum as npmax
 import numpy as np
 
 
-class SearchProblem:
+class SearchProblem(object):
     """
     A class to store a given parameterization of the "offer distribution
     unknown" model.
@@ -44,24 +45,25 @@ class SearchProblem:
 
     Attributes
     ----------
-    beta : scalar(float)
-        The discount parameter
-    c : scalar(float)
-        The unemployment compensation
-    F_a : scalar(float)
-        First parameter of beta distribution on F
-    F_b : scalar(float)
-        Second parameter of beta distribution on F
-    G_a : scalar(float)
-        First parameter of beta distribution on G
-    G_b : scalar(float)
-        Second parameter of beta distribution on G
-    w_max : scalar(float)
-        Maximum wage possible
-    grid_points : array_like(floats, ndim=2)
-        The grid over both wage and probability.  Each row represents
-        a single (w, pi) pair
-
+    beta, c, w_max : see Parameters
+    w_grid : np.ndarray
+        Grid points over wages, ndim=1
+    pi_grid : np.ndarray
+        Grid points over pi, ndim=1
+    grid_points : np.ndarray
+        Combined grid points, ndim=2
+    F : scipy.stats._distn_infrastructure.rv_frozen
+        Beta distribution with params (F_a, F_b), scaled by w_max
+    G : scipy.stats._distn_infrastructure.rv_frozen
+        Beta distribution with params (G_a, G_b), scaled by w_max
+    f : function
+        Density of F
+    g : function
+        Density of G
+    pi_min : scalar(float)
+        Minimum of grid over pi
+    pi_max : scalar(float)
+        Maximum of grid over pi
     """
 
     def __init__(self, beta=0.95, c=0.6, F_a=1, F_b=1, G_a=3, G_b=1.2,
@@ -76,6 +78,36 @@ class SearchProblem:
         self.pi_grid = np.linspace(self.pi_min, self.pi_max, pi_grid_size)
         x, y = np.meshgrid(self.w_grid, self.pi_grid)
         self.grid_points = np.column_stack((x.ravel(1), y.ravel(1)))
+
+    def __repr__(self):
+        m = "SearchProblem(beta={b}, c={c}, F_a={fa}, F_b={fb}, G_a={ga}, "
+        m += "G_b={gb}, w_max={wu}, w_grid_size={wgs}, pi_grid_size={pgs})"
+        fa, fb = self.F.args
+        ga, gb = self.G.args
+        return m.format(b=self.beta, c=self.c, fa=fa, fb=fb, ga=ga,
+                        gb=gb, wu=self.w_grid.max(),
+                        wgs=self.w_grid.size, pgs=self.pi_grid.size)
+
+    def __str__(self):
+        m = """\
+        SearchProblem (offer distribution unknown):
+         - beta (discount factor)                          : {b:g}
+         - c (unemployment compensation)                   : {c}
+         - F (distribution F)                              : Beta({fa}, {fb:g})
+         - G (distribution G)                              : Beta({ga}, {gb:g})
+         - w bounds (bounds for wage offers)               : ({wl:g}, {wu:g})
+         - w grid size (number of points in grid for wage) : {wgs}
+         - pi bounds (bounds for probability of dist f)    : ({pl:g}, {pu:g})
+         - pi grid size (number of points in grid for pi)  : {pgs}
+        """
+        fa, fb = self.F.args
+        ga, gb = self.G.args
+        return dedent(m.format(b=self.beta, c=self.c, fa=fa, fb=fb, ga=ga,
+                               gb=gb,
+                               wl=self.w_grid.min(), wu=self.w_grid.max(),
+                               wgs=self.w_grid.size,
+                               pl=self.pi_grid.min(), pu=self.pi_grid.max(),
+                               pgs=self.pi_grid.size))
 
     def q(self, w, pi):
         """

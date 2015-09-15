@@ -10,16 +10,16 @@ process that evolves according to a Markov chain.
 References
 ----------
 
-http://quant-econ.net/ifp.html
+http://quant-econ.net/py/ifp.html
 
 """
-
+from textwrap import dedent
 import numpy as np
 from scipy.optimize import fminbound, brentq
 from scipy import interp
 
 
-class ConsumerProblem:
+class ConsumerProblem(object):
     """
     A class for solving the income fluctuation problem. Iteration with
     either the Coleman or Bellman operators from appropriate initial
@@ -52,20 +52,9 @@ class ConsumerProblem:
 
     Attributes
     ----------
-    r : scalar(float)
-        A strictly positive scalar giving the interest rate
-    beta : scalar(float)
-        The discount factor, must satisfy (1 + r) * beta < 1
-    Pi : array_like(float)
-        A 2D NumPy array giving the Markov matrix for {z_t}
-    z_vals : array_like(float)
-        The state space of {z_t}
-    b : scalar(float)
-        The borrowing constraint
-    u : callable
-        The utility function
-    du : callable
-        The derivative of u
+    r, beta, Pi, z_vals, b, u, du : see Parameters
+    asset_grid : np.ndarray
+        One dimensional grid for assets
 
     """
 
@@ -78,6 +67,34 @@ class ConsumerProblem:
         self.Pi, self.z_vals = np.array(Pi), tuple(z_vals)
         self.asset_grid = np.linspace(-b, grid_max, grid_size)
 
+    def __repr__(self):
+        m = "ConsumerProblem(r={r:g}, beta={be:g}, Pi='{n:g} by {n:g}', "
+        m += "z_vals={z}, b={b:g}, grid_max={gm:g}, grid_size={gs:g}, "
+        m += "u={u}, du={du})"
+        return m.format(r=self.r, be=self.beta, n=self.Pi.shape[0],
+                        z=self.z_vals, b=self.b,
+                        gm=self.asset_grid.max(), gs=self.asset_grid.size,
+                        u=self.u, du=self.du)
+
+    def __str__(self):
+        m = """
+        Consumer Problem (optimal savings):
+          - r (interest rate)                          : {r:g}
+          - beta (discount rate)                       : {be:g}
+          - Pi (transition matrix)                     : {n} by {n}
+          - z_vals (state space of shocks)             : {z}
+          - b (borrowing constraint)                   : {b:g}
+          - grid_max (maximum of asset grid)           : {gm:g}
+          - grid_size (number of points in asset grid) : {gs:g}
+          - u (utility function)                       : {u}
+          - du (marginal utility function)             : {du}
+        """
+        return dedent(m.format(r=self.r, be=self.beta, n=self.Pi.shape[0],
+                               z=self.z_vals, b=self.b,
+                               gm=self.asset_grid.max(),
+                               gs=self.asset_grid.size, u=self.u,
+                               du=self.du))
+
     def bellman_operator(self, V, return_policy=False):
         """
         The approximate Bellman operator, which computes and returns the
@@ -87,7 +104,7 @@ class ConsumerProblem:
         Parameters
         ----------
         V : array_like(float)
-            A NumPy array of dim len(cp.asset_grid) x len(cp.z_vals)
+            A NumPy array of dim len(cp.asset_grid) times len(cp.z_vals)
         return_policy : bool, optional(default=False)
             Indicates whether to return the greed policy given V or the
             updated value function TV.  Default is TV.
@@ -136,7 +153,7 @@ class ConsumerProblem:
         Parameters
         ----------
         c : array_like(float)
-            A NumPy array of dim len(cp.asset_grid) x len(cp.z_vals)
+            A NumPy array of dim len(cp.asset_grid) times len(cp.z_vals)
 
         Returns
         -------

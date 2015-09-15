@@ -35,6 +35,7 @@ where LN means lognormal.
 
 """
 from __future__ import division  # == Omit for Python 3.x == #
+from textwrap import dedent
 import numpy as np
 from scipy import interp
 from scipy.stats import lognorm
@@ -65,18 +66,7 @@ class LucasTree(object):
 
     Attributes
     ----------
-    gamma : scalar(float)
-        The coefficient of risk aversion in the household's CRRA utility
-        function
-    beta : scalar(float)
-        The household's discount factor
-    alpha : scalar(float)
-        The correlation coefficient in the shock process
-    sigma : scalar(float)
-        The volatility of the shock process
-    grid : array_like(float)
-        The grid points on which to evaluate the asset prices. Grid
-        points should be nonnegative.
+    gamma, beta, alpha, sigma, grid : see Parameters
     grid_min, grid_max, grid_size : scalar(int)
         Properties for grid upon which prices are evaluated
     phi : scipy.stats.lognorm
@@ -108,7 +98,7 @@ class LucasTree(object):
         # == set up distribution for shocks == #
         self.phi = lognorm(sigma)
 
-        # == set up integration bounds. 3 Standard deviations. Make them
+        # == set up integration bounds. 4 Standard deviations. Make them
         # private attributes b/c users don't need to see them, but we
         # only want to compute them once. == #
         self._int_min = np.exp(-4.0 * sigma)
@@ -116,6 +106,24 @@ class LucasTree(object):
 
         # == Set up h from the Lucas Operator == #
         self.h = self._init_h()
+
+    def __repr__(self):
+        m = "LucasTree(gamma={g}, beta={b}, alpha={a}, sigma={s})"
+        return m.format(g=self.gamma, b=self.beta, a=self.alpha, s=self.sigma)
+
+    def __str__(self):
+        m = """\
+        Lucas Pricing Model (Lucas, 1978):
+         - gamma (coefficient of risk aversion)             : {g}
+         - beta (discount parameter)                        : {b}
+         - alpha (correlation coefficient in shock process) : {a}
+         - sigma (volatility of shock process)              : {s}
+         - grid bounds (bounds for where to compute prices) : ({gl:g}, {gu:g})
+         - grid points (number of grid points)              : {gs}
+        """
+        return dedent(m.format(g=self.gamma, b=self.beta, a=self.alpha,
+                               s=self.sigma, gl=self.grid_min,
+                               gu=self.grid_max, gs=self.grid_size))
 
     def _init_h(self):
         """
@@ -141,7 +149,7 @@ class LucasTree(object):
         Construct the default grid for the problem
 
         This is defined to be np.linspace(0, 10, 100) when alpha > 1
-        and 100 evenly spaced points covering 3 standard deviations
+        and 100 evenly spaced points covering 4 standard deviations
         when alpha < 1
         """
         grid_size = 100
@@ -169,7 +177,7 @@ class LucasTree(object):
 
         int_min, int_max : scalar(float), optional
             The bounds of integration. If either of these parameters are
-            `None` (the default), they will be set to 3 standard
+            `None` (the default), they will be set to 4 standard
             deviations above and below the mean.
 
         Returns
@@ -202,7 +210,7 @@ class LucasTree(object):
             and should be flat NumPy array with len(f) = len(grid)
 
         Tf : array_like(float)
-            storage array for Tf
+            Optional storage array for Tf
 
         Returns
         -------
@@ -233,7 +241,7 @@ class LucasTree(object):
 
         return Tf
 
-    def compute_lt_price(self, error_tol=1e-3, max_iter=50, verbose=1):
+    def compute_lt_price(self, error_tol=1e-3, max_iter=50, verbose=0):
         """
         Compute the equilibrium price function associated with Lucas
         tree lt

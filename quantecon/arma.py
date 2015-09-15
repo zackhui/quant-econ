@@ -6,7 +6,7 @@ Provides functions for working with and visualizing scalar ARMA processes.
 
 """
 import numpy as np
-from numpy import conj, pi, real
+from numpy import conj, pi
 import matplotlib.pyplot as plt
 from scipy.signal import dimpulse, freqz, dlsim
 
@@ -14,6 +14,7 @@ from scipy.signal import dimpulse, freqz, dlsim
 # floats == #
 import warnings
 warnings.filterwarnings('ignore')
+
 
 class ARMA(object):
     r"""
@@ -26,9 +27,9 @@ class ARMA(object):
 
         X_t = \phi X_{t-1} + \epsilon_t + \theta \epsilon_{t-1}
 
-    where {epsilon_t} is a white noise process with standard deviation
-    sigma.  If phi and theta are arrays or sequences, then the
-    interpretation is the ARMA(p, q) model
+    where :math:`epsilon_t` is a white noise process with standard
+    deviation :math:`sigma`.  If phi and theta are arrays or sequences,
+    then the interpretation is the ARMA(p, q) model
 
     .. math::
 
@@ -47,7 +48,7 @@ class ARMA(object):
     Parameters
     ----------
     phi : scalar or iterable or array_like(float)
-        Autocorrelation values for the the autocorrelated variable.
+        Autocorrelation values for the autocorrelated variable.
         See above for explanation.
     theta : scalar or iterable or array_like(float)
         Autocorrelation values for the white noise of the model.
@@ -57,14 +58,7 @@ class ARMA(object):
 
     Attributes
     ----------
-    phi : scalar or iterable or array_like(float)
-        Autocorrelation values for the the autocorrelated variable.
-        See above for explanation.
-    theta : scalar or iterable or array_like(float)
-        Autocorrelation values for the white noise of the model.
-        See above for explanation
-    sigma : scalar(float)
-        The standard deviation of the white noise
+    phi, theta, sigma : see Parmeters
     ar_poly : array_like(float)
         The polynomial form that is needed by scipy.signal to do the
         processing we desire.  Corresponds with the phi values
@@ -74,11 +68,44 @@ class ARMA(object):
 
     """
 
-    def __init__(self, phi, theta=0, sigma=1) :
+    def __init__(self, phi, theta=0, sigma=1):
         self._phi, self._theta = phi, theta
         self.sigma = sigma
         self.set_params()
-    
+
+    def __repr__(self):
+        m = "ARMA(phi=%s, theta=%s, sigma=%s)"
+        return m % (self.phi, self.theta, self.sigma)
+
+    def __str__(self):
+        m = "An ARMA({p}, {q}) process"
+        p = np.asarray(self.phi).size
+        q = np.asarray(self.theta).size
+        return m.format(p=p, q=q)
+
+    # Special latex print method for working in notebook
+    def _repr_latex_(self):
+        m = r"$X_t = "
+        phi = np.atleast_1d(self.phi)
+        theta = np.atleast_1d(self.theta)
+        rhs = ""
+        for (tm, phi_p) in enumerate(phi):
+            # don't include terms if they are equal to zero
+            if abs(phi_p) > 1e-12:
+                rhs += r"%+g X_{t-%i}" % (phi_p, tm+1)
+
+        if rhs[0] == "+":
+            rhs = rhs[1:]  # remove initial `+` if phi_1 was positive
+
+        rhs += r" + \epsilon_t"
+
+        for (tm, th_q) in enumerate(theta):
+            # don't include terms if they are equal to zero
+            if abs(th_q) > 1e-12:
+                rhs += r"%+g \epsilon_{t-%i}" % (th_q, tm+1)
+
+        return m + rhs + "$"
+
     @property
     def phi(self):
         return self._phi
@@ -91,7 +118,7 @@ class ARMA(object):
     @property
     def theta(self):
         return self._theta
-    
+
     @theta.setter
     def theta(self, new_value):
         self._theta = new_value
@@ -165,15 +192,15 @@ class ARMA(object):
 
         Parameters
         ----------
-        two_pi : Boolean, optional)
+        two_pi : Boolean, optional
             Compute the spectral density function over [0, pi] if
             two_pi is False and [0, 2 pi] otherwise.  Default value is
             True
         res : scalar or array_like(int), optional(default=1200)
             If res is a scalar then the spectral density is computed at
             `res` frequencies evenly spaced around the unit circle, but
-            if an array the computes the response at the frequencies
-            given by the array
+            if res is an array then the function computes the response
+            at the frequencies given by the array
 
         Returns
         -------
@@ -189,11 +216,11 @@ class ARMA(object):
 
         return w, spect
 
-    def autocovariance(self, num_autocov=16) :
+    def autocovariance(self, num_autocov=16):
         """
-        Compute the autocovariance function from the ARMA parameters over the
-        integers range(num_autocov) using the spectral density and the inverse
-        Fourier transform.
+        Compute the autocovariance function from the ARMA parameters
+        over the integers range(num_autocov) using the spectral density
+        and the inverse Fourier transform.
 
         Parameters
         ----------
@@ -207,7 +234,7 @@ class ARMA(object):
         # num_autocov should be <= len(acov) / 2
         return acov[:num_autocov]
 
-    def simulation(self, ts_length=90) :
+    def simulation(self, ts_length=90):
         """
         Compute a simulated sample path assuming Gaussian shocks.
 
@@ -235,7 +262,7 @@ class ARMA(object):
         yi = self.impulse_response()
         ax.stem(list(range(len(yi))), yi)
         ax.set_xlim(xmin=(-0.5))
-        ax.set_ylim(min(yi)-0.1,max(yi)+0.1)
+        ax.set_ylim(min(yi)-0.1, max(yi)+0.1)
         ax.set_xlabel('time')
         ax.set_ylabel('response')
         if show:
@@ -277,7 +304,7 @@ class ARMA(object):
         if show:
             plt.show()
 
-    def quad_plot(self) :
+    def quad_plot(self):
         """
         Plots the impulse response, spectral_density, autocovariance,
         and one realization of the process.
@@ -287,11 +314,9 @@ class ARMA(object):
         fig, axes = plt.subplots(num_rows, num_cols, figsize=(12, 8))
         plt.subplots_adjust(hspace=0.4)
         plot_functions = [self.plot_impulse_response,
-                     self.plot_spectral_density,
-                     self.plot_autocovariance,
-                     self.plot_simulation]
+                          self.plot_spectral_density,
+                          self.plot_autocovariance,
+                          self.plot_simulation]
         for plot_func, ax in zip(plot_functions, axes.flatten()):
             plot_func(ax, show=False)
         plt.show()
-
-

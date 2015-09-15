@@ -6,7 +6,7 @@ Edited by: Chase Coleman, John Stachurski
 This file corresponds to the Ramsey model from the QE lecture on
 history dependent policies:
 
-    http://quant-econ.net/hist_dep_policies.html
+    http://quant-econ.net/py/hist_dep_policies.html
 
 In the following, ``uhat`` and ``tauhat`` are what the planner would choose if
 he could reset at time t, ``uhatdif`` and ``tauhatdif`` are the difference
@@ -21,6 +21,7 @@ import numpy as np
 from quantecon import LQ
 from quantecon.matrix_eqn import solve_discrete_lyapunov
 from scipy.optimize import root
+
 
 def computeG(A0, A1, d, Q0, tau0, beta, mu):
     """
@@ -107,6 +108,7 @@ mu0  = 0.0025
 Q0   = 1000.0
 tau0 = 0.0
 
+
 def gg(mu):
     """
     Computes the tax revenues for the government given Lagrangian
@@ -175,4 +177,3 @@ if __name__ == '__main__':
     print(y)
     print("-F")
     print(-F)
-

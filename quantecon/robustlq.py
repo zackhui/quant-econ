@@ -6,8 +6,8 @@ Authors: Chase Coleman, Spencer Lyon, Thomas Sargent, John Stachurski
 Solves robust LQ control problems.
 
 """
-
 from __future__ import division  # Remove for Python 3.sx
+from textwrap import dedent
 import numpy as np
 from .lqcontrol import LQ
 from .quadsums import var_quadratic_sum
@@ -15,14 +15,15 @@ from numpy import dot, log, sqrt, identity, hstack, vstack, trace
 from scipy.linalg import solve, inv, det
 from .matrix_eqn import solve_discrete_lyapunov
 
-class RBLQ:
+
+class RBLQ(object):
     r"""
     Provides methods for analysing infinite horizon robust LQ control
     problems of the form
 
     .. math::
 
-        min_{u_t}  sum_t beta^t {x_t' R x_t + u'_t Q u_t }
+        min_{u_t}  sum_t beta^t {x_t' R x_t + u_t' Q u_t }
 
     subject to
 
@@ -56,25 +57,7 @@ class RBLQ:
 
     Attributes
     ----------
-    Q : array_like(float, ndim=2)
-        The cost(payoff) matrix for the controls.  See above for more.
-        Q should be k x k and symmetric and positive definite
-    R : array_like(float, ndim=2)
-        The cost(payoff) matrix for the state.  See above for more. R
-        should be n x n and symmetric and non-negative definite
-    A : array_like(float, ndim=2)
-        The matrix that corresponds with the state in the state space
-        system.  A should be n x n
-    B : array_like(float, ndim=2)
-        The matrix that corresponds with the control in the state space
-        system.  B should be n x k
-    C : array_like(float, ndim=2)
-        The matrix that corresponds with the random process in the
-        state space system.  C should be n x j
-    beta : scalar(float)
-        The discount factor in the robust control problem
-    theta : scalar(float)
-        The robustness factor in the robust control problem
+    Q, R, A, B, C, beta, theta : see Parameters
     k, n, j : scalar(int)
         The dimensions of the matrices
 
@@ -91,6 +74,21 @@ class RBLQ:
         self.j = self.C.shape[1]
         # == Remaining parameters == #
         self.beta, self.theta = beta, theta
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        m = """\
+        Robust linear quadratic control system
+          - beta (discount parameter)   : {b}
+          - theta (robustness factor)   : {th}
+          - n (number of state variables)   : {n}
+          - k (number of control variables) : {k}
+          - j (number of shocks)            : {j}
+        """
+        return dedent(m.format(b=self.beta, n=self.n, k=self.k, j=self.j,
+                               th=self.theta))
 
     def d_operator(self, P):
         r"""
@@ -174,7 +172,7 @@ class RBLQ:
         F : array_like(float, ndim=2)
             The optimal control matrix from above
         P : array_like(float, ndim=2)
-            The psoitive semi-definite matrix defining the value
+            The positive semi-definite matrix defining the value
             function
         K : array_like(float, ndim=2)
             the worst-case shock matrix K, where
@@ -223,7 +221,7 @@ class RBLQ:
         F : array_like(float, ndim=2)
             The optimal control matrix from above
         P : array_like(float, ndim=2)
-            The psoitive semi-definite matrix defining the value
+            The positive semi-definite matrix defining the value
             function
         K : array_like(float, ndim=2)
             the worst-case shock matrix K, where
@@ -372,4 +370,3 @@ class RBLQ:
         o_F = (ho + beta * tr) / (1 - beta)
 
         return K_F, P_F, d_F, O_F, o_F
-
