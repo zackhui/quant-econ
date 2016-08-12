@@ -9,10 +9,9 @@ from textwrap import dedent
 import numpy as np
 from numpy.random import multivariate_normal
 from scipy.linalg import solve
+from numba import jit
 
-#-Check if Numba is Available-#
-from .util import numba_installed, jit
-
+@jit
 def simulate_linear_model(A, x0, v, ts_length):
     """
     This is a separate function for simulating a vector linear system of 
@@ -55,8 +54,6 @@ def simulate_linear_model(A, x0, v, ts_length):
                 x[i, t+1] += A[i, j] * x[j, t]   #Dot Product
     return x
 
-if numba_installed:
-    simulate_linear_model = jit(simulate_linear_model)
 
 class LinearStateSpace(object):
     """
@@ -141,7 +138,7 @@ class LinearStateSpace(object):
         well formed 2D NumPy arrays
 
         """
-        return np.atleast_2d(np.asarray(x, dtype='float32'))
+        return np.atleast_2d(np.asarray(x, dtype='float'))
 
     def simulate(self, ts_length=100):
         """
@@ -336,3 +333,42 @@ class LinearStateSpace(object):
         S_y = self.G.dot(S_x)
 
         return S_x, S_y
+
+    def impulse_response(self, j=5):
+        """
+        Pulls off the imuplse response coefficients to a shock
+        in w_{t} for x and y
+
+        Important to note: We are uninterested in the shocks to
+        v for this method
+
+        * x coefficients are C, AC, A^2 C...
+        * y coefficients are GC, GAC, GA^2C...
+
+        Parameters
+        ----------
+        j : Scalar(int)
+            Number of coefficients that we want
+
+        Returns
+        -------
+        xcoef : list(array_like(float, 2))
+            The coefficients for x
+        ycoef : list(array_like(float, 2))
+            The coefficients for y
+        """
+        # Pull out matrices
+        A, C, G, H = self.A, self.C, self.G, self.H
+        Apower = np.copy(A)
+
+        # Create room for coefficients
+        xcoef = [C]
+        ycoef = [np.dot(G, C)]
+
+        for i in range(j):
+            xcoef.append(np.dot(Apower, C))
+            ycoef.append(np.dot(G, np.dot(Apower, C)))
+            Apower = np.dot(Apower, A)
+
+        return xcoef, ycoef
+

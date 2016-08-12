@@ -1,4 +1,4 @@
-"""
+r"""
 Filename: ddp.py
 
 Author: Daisuke Oyama
@@ -23,16 +23,16 @@ A discrete dynamic program consists of the following components:
   \Delta(S)`, where :math:`q(s'|s, a)` is the probability that the state
   in the next period is :math:`s'` when the current state is :math:`s`
   and the action chosen is :math:`a`; and
-* discount factor :math:`\beta \in [0, 1)`.
+* discount factor :math:`0 \leq \beta < 1`.
 
 For a policy function :math:`\sigma`, let :math:`r_{\sigma}` and
 :math:`Q_{\sigma}` be the reward vector and the transition probability
 matrix for :math:`\sigma`, which are defined by :math:`r_{\sigma}(s) =
 r(s, \sigma(s))` and :math:`Q_{\sigma}(s, s') = q(s'|s, \sigma(s))`,
 respectively. The policy value function :math:`v_{\sigma}` for
-:math`\sigma` is defined by
+:math:`\sigma` is defined by
 
-..math::
+.. math::
 
     v_{\sigma}(s) = \sum_{t=0}^{\infty}
                     \beta^t (Q_{\sigma}^t r_{\sigma})(s)
@@ -40,12 +40,12 @@ respectively. The policy value function :math:`v_{\sigma}` for
 
 The *optimal value function* :math:`v^*` is the function such that
 :math:`v^*(s) = \max_{\sigma} v_{\sigma}(s)` for all :math:`s \in S`. A
-policy function :math:`\sigma^*` is *optimal* if :math:`v_{\sigma}(s) =
-v(s)` for all :math:`s \in S`.
+policy function :math:`\sigma^*` is *optimal* if :math:`v_{\sigma^*}(s)
+= v^*(s)` for all :math:`s \in S`.
 
 The *Bellman equation* is written as
 
-..math::
+.. math::
 
     v(s) = \max_{a \in A(s)} r(s, a)
            + \beta \sum_{s' \in S} q(s'|s, a) v(s') \quad (s \in S).
@@ -53,7 +53,7 @@ The *Bellman equation* is written as
 The *Bellman operator* :math:`T` is defined by the right hand side of
 the Bellman equation:
 
-..math::
+.. math::
 
     (T v)(s) = \max_{a \in A(s)} r(s, a)
                + \beta \sum_{s' \in S} q(s'|s, a) v(s') \quad (s \in S).
@@ -61,7 +61,7 @@ the Bellman equation:
 For a policy function :math:`\sigma`, the operator :math:`T_{\sigma}` is
 defined by
 
-..math::
+.. math::
 
     (T_{\sigma} v)(s) = r(s, \sigma(s))
                         + \beta \sum_{s' \in S} q(s'|s, \sigma(s)) v(s')
@@ -109,15 +109,16 @@ Programming, Wiley-Interscience, 2005.
 
 """
 from __future__ import division
+import warnings
 import numpy as np
 import scipy.sparse as sp
+from numba import jit
 
 from .core import MarkovChain
-from ..util import numba_installed, jit
 
 
 class DiscreteDP(object):
-    """
+    r"""
     Class for dealing with a discrete dynamic program.
 
     There are two ways to represent the data for instantiating a
@@ -141,7 +142,7 @@ class DiscreteDP(object):
 
        with parameters:
 
-       * length L reward vector R,
+       * length L reward vector `R`,
        * L x n transition probability array `Q`,
        * discount factor `beta`,
        * length L array `s_indices`, and
@@ -165,7 +166,7 @@ class DiscreteDP(object):
         Transition probability array.
 
     beta : scalar(float)
-        Discount factor. Must be in [0, 1).
+        Discount factor. Must be in [0, 1].
 
     s_indices : array_like(int, ndim=1), optional(default=None)
         Array containing the indices of the states.
@@ -180,9 +181,6 @@ class DiscreteDP(object):
     num_states : scalar(int)
         Number of states.
 
-    num_actions : scalar(int)
-        Number of actions.
-
     num_sa_pairs : scalar(int)
         Number of feasible state-action pairs (or those that yield
         finite rewards).
@@ -192,6 +190,13 @@ class DiscreteDP(object):
 
     max_iter : scalar(int), default=250
         Default value for the maximum number of iterations.
+
+    Notes
+    -----
+    DiscreteDP accepts beta=1 for convenience. In this case, infinite
+    horizon solution methods are disabled, and the instance is then seen
+    as merely an object carrying the Bellman operator, which may be used
+    for backward induction for finite horizon problems.
 
     Examples
     --------
@@ -297,7 +302,7 @@ class DiscreteDP(object):
             raise ValueError('R must be 1- or 2-dimensional')
 
         msg_dimension = 'dimensions of R and Q must be either 1 and 2, ' \
-                        'of 2 and 3'
+                        'or 2 and 3'
         msg_shape = 'shapes of R and Q must be either (n, m) and (n, m, n), ' \
                     'or (L,) and (L, n)'
 
@@ -322,7 +327,6 @@ class DiscreteDP(object):
 
             self.s_indices = np.asarray(s_indices)
             self.a_indices = np.asarray(a_indices)
-            self.num_actions = self.a_indices.max() + 1
 
             if _has_sorted_sa_indices(self.s_indices, self.a_indices):
                 a_indptr = np.empty(self.num_states+1, dtype=int)
@@ -372,12 +376,12 @@ class DiscreteDP(object):
         else:  # Not self._sa_pair
             if self.R.ndim != 2:
                 raise ValueError(msg_dimension)
-            self.num_states, self.num_actions = self.R.shape
+            n, m = self.R.shape
 
-            if self.Q.shape != \
-               (self.num_states, self.num_actions, self.num_states):
+            if self.Q.shape != (n, m, n):
                 raise ValueError(msg_shape)
 
+            self.num_states = n
             self.s_indices, self.a_indices = None, None
             self.num_sa_pairs = (self.R > -np.inf).sum()
 
@@ -385,9 +389,8 @@ class DiscreteDP(object):
             def s_wise_max(vals, out=None, out_argmax=None):
                 """
                 Return the vector max_a vals(s, a), where vals is represented
-                by a 2-dimensional ndarray of shape (self.num_states,
-                self.num_actions). Stored in out, which must be of length
-                self.num_states.
+                by a 2-dimensional ndarray of shape (n, m). Stored in out,
+                which must be of length self.num_states.
                 out and out_argmax must be of length self.num_states; dtype of
                 out_argmax must be int.
 
@@ -406,8 +409,12 @@ class DiscreteDP(object):
         # Check that for every state, at least one action is feasible
         self._check_action_feasibility()
 
-        if not (0 <= beta < 1):
-            raise ValueError('beta must be in [0, 1)')
+        if not (0 <= beta <= 1):
+            raise ValueError('beta must be in [0, 1]')
+        if beta == 1:
+            msg = 'infinite horizon solution methods are disabled with beta=1'
+            warnings.warn(msg)
+            self._error_msg_no_discounting = 'method invalid for beta=1'
         self.beta = beta
 
         self.epsilon = 1e-3
@@ -451,8 +458,8 @@ class DiscreteDP(object):
 
     def RQ_sigma(self, sigma):
         """
-        Given a policy `sigma`, return the reward vector R_sigma and the
-        transition probability matrix Q_sigma.
+        Given a policy `sigma`, return the reward vector `R_sigma` and
+        the transition probability matrix `Q_sigma`.
 
         Parameters
         ----------
@@ -483,7 +490,7 @@ class DiscreteDP(object):
     def bellman_operator(self, v, Tv=None, sigma=None):
         """
         The Bellman operator, which computes and returns the updated
-        value function Tv for a value function v.
+        value function `Tv` for a value function `v`.
 
         Parameters
         ----------
@@ -538,7 +545,7 @@ class DiscreteDP(object):
             Value function vector, of length n.
 
         sigma : ndarray(int, ndim=1), optional(default=None)
-            Optional output array for sigma.
+            Optional output array for `sigma`.
 
         Returns
         -------
@@ -566,6 +573,9 @@ class DiscreteDP(object):
             Value vector of `sigma`, of length n.
 
         """
+        if self.beta == 1:
+            raise NotImplementedError(self._error_msg_no_discounting)
+
         # Solve (I - beta * Q_sigma) v = R_sigma for v
         R_sigma, Q_sigma = self.RQ_sigma(sigma)
         b = R_sigma
@@ -683,6 +693,9 @@ class DiscreteDP(object):
         `solve` method.
 
         """
+        if self.beta == 1:
+            raise NotImplementedError(self._error_msg_no_discounting)
+
         if max_iter is None:
             max_iter = self.max_iter
         if epsilon is None:
@@ -708,12 +721,12 @@ class DiscreteDP(object):
         sigma = self.compute_greedy(v)
 
         res = DPSolveResult(v=v,
-                             sigma=sigma,
-                             num_iter=num_iter,
-                             mc=self.controlled_mc(sigma),
-                             method='value iteration',
-                             epsilon=epsilon,
-                             max_iter=max_iter)
+                            sigma=sigma,
+                            num_iter=num_iter,
+                            mc=self.controlled_mc(sigma),
+                            method='value iteration',
+                            epsilon=epsilon,
+                            max_iter=max_iter)
 
         return res
 
@@ -723,6 +736,9 @@ class DiscreteDP(object):
         `solve` method.
 
         """
+        if self.beta == 1:
+            raise NotImplementedError(self._error_msg_no_discounting)
+
         if max_iter is None:
             max_iter = self.max_iter
 
@@ -745,11 +761,11 @@ class DiscreteDP(object):
         num_iter = i + 1
 
         res = DPSolveResult(v=v_sigma,
-                             sigma=sigma,
-                             num_iter=num_iter,
-                             mc=self.controlled_mc(sigma),
-                             method='policy iteration',
-                             max_iter=max_iter)
+                            sigma=sigma,
+                            num_iter=num_iter,
+                            mc=self.controlled_mc(sigma),
+                            method='policy iteration',
+                            max_iter=max_iter)
 
         return res
 
@@ -760,6 +776,9 @@ class DiscreteDP(object):
         the `solve` method.
 
         """
+        if self.beta == 1:
+            raise NotImplementedError(self._error_msg_no_discounting)
+
         if max_iter is None:
             max_iter = self.max_iter
         if epsilon is None:
@@ -780,14 +799,15 @@ class DiscreteDP(object):
         u = np.empty(self.num_states)
         sigma = np.empty(self.num_states, dtype=int)
 
+        try:
+            tol = epsilon * (1-self.beta) / self.beta
+        except ZeroDivisionError:  # Raised if beta = 0
+            tol = np.inf
+
         for i in range(max_iter):
             # Policy improvement
             self.bellman_operator(v, Tv=u, sigma=sigma)
             diff = u - v
-            try:
-                tol = epsilon * (1-self.beta) / self.beta
-            except ZeroDivisionError:  # Raised if beta = 0
-                tol = np.inf
             if span(diff) < tol:
                 v[:] = u + midrange(diff) * self.beta / (1 - self.beta)
                 break
@@ -798,13 +818,13 @@ class DiscreteDP(object):
         num_iter = i + 1
 
         res = DPSolveResult(v=v,
-                             sigma=sigma,
-                             num_iter=num_iter,
-                             mc=self.controlled_mc(sigma),
-                             method='modified policy iteration',
-                             epsilon=epsilon,
-                             max_iter=max_iter,
-                             k=k)
+                            sigma=sigma,
+                            num_iter=num_iter,
+                            mc=self.controlled_mc(sigma),
+                            method='modified policy iteration',
+                            epsilon=epsilon,
+                            max_iter=max_iter,
+                            k=k)
 
         return res
 
@@ -820,7 +840,7 @@ class DiscreteDP(object):
         Returns
         -------
         mc : MarkovChain
-            Controlled Markov Chain.
+            Controlled Markov chain.
 
         """
         _, Q_sigma = self.RQ_sigma(sigma)
@@ -877,6 +897,73 @@ class DPSolveResult(dict):
         return self.keys()
 
 
+def backward_induction(ddp, T, v_term=None):
+    r"""
+    Solve by backward induction a :math:`T`-period finite horizon
+    discrete dynamic program with stationary reward and transition
+    probability functions :math:`r` and :math:`q` and discount factor
+    :math:`\beta \in [0, 1]`.
+
+    The optimal value functions :math:`v^*_0, \ldots, v^*_T` and policy
+    functions :math:`\sigma^*_0, \ldots, \sigma^*_{T-1}` are obtained by
+    :math:`v^*_T = v_T`, and
+
+    .. math::
+
+        v^*_{t-1}(s) = \max_{a \in A(s)} r(s, a) +
+            \beta \sum_{s' \in S} q(s'|s, a) v^*_t(s')
+            \quad (s \in S)
+
+    and
+
+    .. math::
+
+        \sigma^*_{t-1}(s) \in \operatorname*{arg\,max}_{a \in A(s)}
+            r(s, a) + \beta \sum_{s' \in S} q(s'|s, a) v^*_t(s')
+            \quad (s \in S)
+
+    for :math:`t = T, \ldots, 1`, where the terminal value function
+    :math:`v_T` is exogenously given.
+
+    Parameters
+    ----------
+    ddp : DiscreteDP
+        DiscreteDP instance storing reward array `R`, transition
+        probability array `Q`, and discount factor `beta`.
+
+    T : scalar(int)
+        Number of decision periods.
+
+    v_term : array_like(float, ndim=1), optional(default=None)
+        Terminal value function, of length equal to n (the number of
+        states). If None, it defaults to the vector of zeros.
+
+    Returns
+    -------
+    vs : ndarray(float, ndim=2)
+        Array of shape (T+1, n) where `vs[t]` contains the optimal
+        value function at period `t = 0, ..., T`.
+
+    sigmas : ndarray(int, ndim=2)
+        Array of shape (T, n) where `sigmas[t]` contains the optimal
+        policy function at period `t = 0, ..., T-1`.
+
+    """
+    n = ddp.num_states
+    vs = np.empty((T+1, n))
+    sigmas = np.empty((T, n), dtype=int)
+
+    if v_term is None:
+        v_term = np.zeros(n)
+    vs[T, :] = v_term
+
+    for t in range(T, 0, -1):
+        ddp.bellman_operator(vs[t, :], Tv=vs[t-1, :], sigma=sigmas[t-1, :])
+
+    return vs, sigmas
+
+
+@jit(nopython=True)
 def _s_wise_max_argmax(a_indices, a_indptr, vals, out_max, out_argmax):
     n = len(out_max)
     for i in range(n):
@@ -888,10 +975,8 @@ def _s_wise_max_argmax(a_indices, a_indptr, vals, out_max, out_argmax):
             out_max[i] = vals[m]
             out_argmax[i] = a_indices[m]
 
-if numba_installed:
-    _s_wise_max_argmax = jit(nopython=True)(_s_wise_max_argmax)
 
-
+@jit(nopython=True)
 def _s_wise_max(a_indices, a_indptr, vals, out_max):
     n = len(out_max)
     for i in range(n):
@@ -902,19 +987,14 @@ def _s_wise_max(a_indices, a_indptr, vals, out_max):
                     m = j
             out_max[i] = vals[m]
 
-if numba_installed:
-    _s_wise_max = jit(nopython=True)(_s_wise_max)
 
-
+@jit(nopython=True)
 def _find_indices(a_indices, a_indptr, sigma, out):
     n = len(sigma)
     for i in range(n):
         for j in range(a_indptr[i], a_indptr[i+1]):
             if sigma[i] == a_indices[j]:
                 out[i] = j
-
-if numba_installed:
-    _find_indices = jit(nopython=True)(_find_indices)
 
 
 @jit(nopython=True)

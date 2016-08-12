@@ -8,10 +8,12 @@ Generate MarkovChain and DiscreteDP instances randomly.
 """
 import numpy as np
 import scipy.sparse
+from numba import jit
 
 from .core import MarkovChain
 from .ddp import DiscreteDP
-from ..util import check_random_state, numba_installed, jit
+from .utilities import sa_indices
+from ..util import check_random_state
 from ..random import probvec, sample_without_replacement
 
 
@@ -209,7 +211,7 @@ def random_discrete_dp(num_states, num_actions, beta=None,
         beta = random_state.random_sample()
 
     if sa_pair:
-        s_indices, a_indices = _sa_indices(num_states, num_actions)
+        s_indices, a_indices = sa_indices(num_states, num_actions)
     else:
         s_indices, a_indices = None, None
         R.shape = (num_states, num_actions)
@@ -217,21 +219,3 @@ def random_discrete_dp(num_states, num_actions, beta=None,
 
     ddp = DiscreteDP(R, Q, beta, s_indices, a_indices)
     return ddp
-
-
-def _sa_indices(num_states, num_actions):
-    L = num_states * num_actions
-    s_indices = np.empty(L, dtype=int)
-    a_indices = np.empty(L, dtype=int)
-
-    i = 0
-    for s in range(num_states):
-        for a in range(num_actions):
-            s_indices[i] = s
-            a_indices[i] = a
-            i += 1
-
-    return s_indices, a_indices
-
-if numba_installed:
-    _sa_indices = jit(_sa_indices)
